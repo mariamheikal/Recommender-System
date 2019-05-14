@@ -1,0 +1,126 @@
+data User=U String deriving (Show,Eq)
+data Item=I String deriving (Show,Eq)
+data Fractional a => Rating a= NoRating | R a deriving (Show,Eq) 
+
+dis :: Eq a => [a] -> [a]
+dis []=[]
+dis (x:xs)|exist x xs=dis xs
+          |otherwise=x:(dis xs) 
+
+exist _ []=False
+exist x (a:b)|x==a=True
+             |otherwise=exist x b
+
+fromRatingsToItems :: Eq a => [(b,a,c)] -> [a]
+fromRatingsToItems []=[]
+fromRatingsToItems ((a,b,c):l)  =dis (b:(fromRatingsToItems l))
+
+fromRatingsToUsers :: Eq a => [(a,b,c)] -> [a]
+fromRatingsToUsers []=[]
+fromRatingsToUsers ((a,b,c):l)  =dis (a:(fromRatingsToUsers l))
+
+hasRating :: (Eq a, Eq b) => a -> b -> [(a,b,c)] -> Bool
+hasRating _ _ []=False
+hasRating u i ((a,b,c):l) |u==a && i==b=True
+                          |otherwise=hasRating u i l
+getRating :: (Eq a, Eq b) => a -> b -> [(a,b,c)] -> c
+getRating _ _ []= error "No given rating"
+getRating u i ((a,b,c):l)| a==u && i==b =c
+		         | otherwise = getRating u i l
+formMatrixUser :: (Eq a, Eq b, Fractional c) => b -> [a] -> [(b,a,c)] -> [Rating c]
+formMatrixUser _ [] _ = []
+formMatrixUser u (i:is) l|hasRating u i l= R (getRating u i l):(formMatrixUser u is l)
+                         |otherwise=NoRating:formMatrixUser u is l
+
+formMatrix :: (Fractional a, Eq b, Eq c) => [b] -> [c] -> [(b,c,a)] -> [[Rating a]]
+formMatrix [] _ _ =[]
+formMatrix (u:us) i l = (formMatrixUser u i l):(formMatrix us i l)
+
+numberRatingsGivenItem :: (Fractional a, Num b) => Int -> [[Rating a]] -> b
+numberRatingsGivenItem _ []=0
+numberRatingsGivenItem i (r:l) | r !! i ==NoRating=numberRatingsGivenItem i l
+                               |otherwise=1+numberRatingsGivenItem i l
+
+differeneRatings :: Fractional a => Rating a -> Rating a -> a
+differeneRatings NoRating _ =0.0
+differeneRatings _ NoRating =0.0
+differeneRatings (R x) (R y) = x-y 
+
+matrixPairs :: Num a => a -> [(a,a)]
+matrixPairs x = permutations a a where a = getTill 0 x
+
+getTill y x |y==x = []
+	    | otherwise= y : getTill (y+1) x
+
+permutations [] _ =[]
+permutations (x:xs) z = (getVariant x z) ++ permutations xs z
+
+getVariant _ [] =[]
+getVariant x (y:ys)=(x,y) : getVariant x ys
+
+dMatrix :: Fractional a => [[Rating a]] -> [a]
+dMatrix (x:xs) = dcoordinate (matrixPairs (length x)) (x:xs)
+
+dcoordinate [] _ = []
+dcoordinate ((i,j):xs) l =( totDiff (i,j) l ):( dcoordinate xs l ) 
+
+
+totDiff _ [] =0
+totDiff (i,j) (l:ls) = (differeneRatings (l!!i) (l!!j)) + ( totDiff (i,j) ls )
+
+freqMatrix :: (Num a, Fractional b) => [[Rating b]] -> [a]
+freqMatrix (x:xs) = fcoordinate (matrixPairs (length x)) (x:xs)
+
+fcoordinate [] _ = []
+fcoordinate ((i,j):xs) l = (ratedBoth (i,j) l ):( fcoordinate xs l ) 
+
+ratedBoth _ [] = 0
+ratedBoth (i,j) (l:ls) | ((l!!i) /=NoRating) && ((l!!j)/=NoRating) = 1 + (ratedBoth (i,j) ls)
+		       | otherwise = (ratedBoth (i,j) ls)
+
+diffFreqMatrix :: Fractional a => [[Rating a]] -> [a]
+diffFreqMatrix l = avg (dMatrix l) (freqMatrix l)
+
+avg [] [] =[]
+avg (x:xs) (y:ys) = (x/y) : avg xs ys
+
+predict :: (Fractional a, Eq b, Eq c) => [(c,b,a)] -> Int -> Int -> a
+predict l u i|(((formMatrix (fromRatingsToUsers l) (fromRatingsToItems l) l)!!u)!!i)/=NoRating=r where (R r)=(((formMatrix (fromRatingsToUsers l) (fromRatingsToItems l) l)!!u)!!i)
+
+
+predict l u i = getAV (hlp2 0 i (diffFreqMatrix x) (x!!u)) where x=formMatrix (fromRatingsToUsers l) (fromRatingsToItems l) l 
+
+hlp2 j i l k| j== length k = []
+	    | i ==j = hlp2 (j+1) i l k
+            | (k!!j)==NoRating=hlp2 (j+1) i l k
+	    | otherwise=(( l !! (i*(length k)+j) )+ a):(hlp2 (j+1) i l k) where (R a) = (k !! j)
+
+getAV []=0.0
+getAV x =(sum x) / ( length2 x)
+
+length2::Fractional a => [a]->a
+length2 []=0.0
+length2 (x:xs)=1+length2 xs 
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
